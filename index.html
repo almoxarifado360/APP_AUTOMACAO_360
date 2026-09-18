@@ -17,7 +17,7 @@
 
 <style>
 :root{
-  --azul:#0b3f88;
+  --azul:#093272;
   --azul-2:#1465c5;
   --azul-3:#0a56b5;
   --fundo:#eef3f8;
@@ -42,37 +42,38 @@ body{
 button,input,select{font:inherit}
 button{cursor:pointer}
 header{
-  background:#fff;
-  color:#0b3f88;
-  padding:0;
+  background:#093272;
+  color:#fff;
+  padding:88px 20px 36px;
   text-align:center;
   border-radius:0;
-  box-shadow:0 3px 14px rgba(0,0,0,.12);
+  box-shadow:0 4px 16px rgba(0,0,0,.18);
 }
 .logo-area{
-  background:#fff;
-  padding:12px 16px 10px;
+  background:#093272;
+  padding:0;
 }
 .logo-header{
-  width:min(280px,76vw);
-  max-height:105px;
+  width:min(460px,86vw);
+  max-height:205px;
   object-fit:contain;
   display:block;
-  margin:0 auto;
+  margin:0 auto 38px;
 }
 .titulo-area{
-  background:linear-gradient(135deg,#0878d1,#075ca8);
+  background:transparent;
   color:#fff;
-  padding:14px 16px 16px;
+  padding:0;
 }
 .titulo h1{
-  margin:0 0 2px;
-  font-size:clamp(25px,5vw,38px);
-  line-height:1.1;
-  font-weight:800;
+  margin:0 0 5px;
+  font-size:clamp(30px,5vw,50px);
+  line-height:1.08;
+  font-weight:900;
   text-transform:uppercase;
+  letter-spacing:.2px;
 }
-.subtitulo{font-size:17px;opacity:.98}
+.subtitulo{font-size:22px;opacity:1}
 .container{
   width:min(1180px,calc(100% - 24px));
   margin:14px auto 28px;
@@ -80,30 +81,37 @@ header{
 .navegacao{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-bottom:14px;
+  gap:14px;
+  margin-bottom:16px;
 }
 .nav-btn{
-  min-height:54px;
+  min-height:74px;
   border:0;
-  border-radius:13px;
-  background:#e6edf6;
+  border-radius:22px;
+  background:#fff;
   color:#102a4c;
   font-weight:800;
   padding:12px 16px;
   box-shadow:var(--sombra);
 }
 .nav-btn.ativo{
-  background:#1260c9;
+  background:#1f63d5;
   color:#fff;
+}
+.nav-btn:hover{
+  transform:translateY(-1px);
+}
+.nav-btn:focus-visible{
+  outline:3px solid rgba(31,99,213,.25);
+  outline-offset:2px;
 }
 .card{
   background:var(--card);
   border:1px solid #e0e7ef;
-  border-radius:16px;
-  padding:16px;
+  border-radius:18px;
+  padding:18px;
   margin-bottom:14px;
-  box-shadow:var(--sombra);
+  box-shadow:0 4px 18px rgba(15,45,80,.08);
 }
 .card-titulo{
   font-size:20px;
@@ -322,7 +330,7 @@ input:focus,select:focus{
 .insuficiente{color:#9a6500;font-weight:800}
 .estoque-numero{font-weight:800}
 footer{
-  background:#0b3f88;
+  background:#093272;
   color:#fff;
   padding:16px;
   text-align:center;
@@ -334,14 +342,14 @@ footer{
   .dados-ficha{grid-template-columns:repeat(3,1fr)}
 }
 @media (max-width:700px){
-  header{padding:14px 12px 18px}
-  .logo-header{width:min(280px,82vw);max-height:95px}
-  .titulo h1{font-size:25px}
-  .subtitulo{font-size:14px}
+  header{padding:46px 12px 28px}
+  .logo-header{width:min(360px,88vw);max-height:150px;margin-bottom:24px}
+  .titulo h1{font-size:clamp(25px,7vw,34px)}
+  .subtitulo{font-size:16px}
   .container{width:calc(100% - 14px);margin-top:10px}
   .navegacao{grid-template-columns:1fr;gap:8px}
-  .nav-btn{min-height:48px}
-  .card{padding:12px;border-radius:13px}
+  .nav-btn{min-height:58px;border-radius:18px;padding:12px 14px}
+  .card{padding:14px;border-radius:16px}
   .card-titulo{font-size:18px}
   .grid-form{grid-template-columns:1fr;gap:10px}
   .catalogo-topo{align-items:flex-start}
@@ -372,8 +380,10 @@ footer{
   .botao-salvar{width:100%}
 }
 @media (max-width:420px){
-  .logo-header{max-height:80px}
-  .titulo h1{font-size:22px}
+  header{padding:32px 10px 24px}
+  .logo-header{width:88vw;max-height:120px;margin-bottom:20px}
+  .titulo h1{font-size:23px}
+  .subtitulo{font-size:15px}
   .catalogo-tabela{min-width:510px}
   .catalogo-tabela th:nth-child(1),
   .catalogo-tabela td:nth-child(1){min-width:78px}
