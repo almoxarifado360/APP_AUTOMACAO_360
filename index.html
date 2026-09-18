@@ -42,28 +42,37 @@ body{
 button,input,select{font:inherit}
 button{cursor:pointer}
 header{
-  background:linear-gradient(135deg,#0b3f88,#1258ad);
-  color:#fff;
-  padding:22px 16px 24px;
+  background:#fff;
+  color:#0b3f88;
+  padding:0;
   text-align:center;
-  border-radius:0 0 18px 18px;
-  box-shadow:0 3px 14px rgba(0,0,0,.14);
+  border-radius:0;
+  box-shadow:0 3px 14px rgba(0,0,0,.12);
+}
+.logo-area{
+  background:#fff;
+  padding:12px 16px 10px;
 }
 .logo-header{
-  width:min(520px,82vw);
-  max-height:145px;
+  width:min(280px,76vw);
+  max-height:105px;
   object-fit:contain;
   display:block;
-  margin:0 auto 8px;
+  margin:0 auto;
+}
+.titulo-area{
+  background:linear-gradient(135deg,#0878d1,#075ca8);
+  color:#fff;
+  padding:14px 16px 16px;
 }
 .titulo h1{
-  margin:4px 0 2px;
+  margin:0 0 2px;
   font-size:clamp(25px,5vw,38px);
   line-height:1.1;
   font-weight:800;
   text-transform:uppercase;
 }
-.subtitulo{font-size:17px;opacity:.95}
+.subtitulo{font-size:17px;opacity:.98}
 .container{
   width:min(1180px,calc(100% - 24px));
   margin:14px auto 28px;
@@ -326,7 +335,7 @@ footer{
 }
 @media (max-width:700px){
   header{padding:14px 12px 18px}
-  .logo-header{width:min(430px,92vw);max-height:100px}
+  .logo-header{width:min(280px,82vw);max-height:95px}
   .titulo h1{font-size:25px}
   .subtitulo{font-size:14px}
   .container{width:calc(100% - 14px);margin-top:10px}
@@ -363,7 +372,7 @@ footer{
   .botao-salvar{width:100%}
 }
 @media (max-width:420px){
-  .logo-header{max-height:85px}
+  .logo-header{max-height:80px}
   .titulo h1{font-size:22px}
   .catalogo-tabela{min-width:510px}
   .catalogo-tabela th:nth-child(1),
@@ -381,9 +390,13 @@ footer{
 <body>
 
 <header>
-  <img class="logo-header" src="logo-360.png" alt="Grupo 360 Manutenção">
-  <div class="titulo"><h1>Pedido de Automação</h1></div>
-  <div class="subtitulo">Grupo 360 Manutenção</div>
+  <div class="logo-area">
+    <img class="logo-header" src="logo-360.png" alt="Grupo 360 Manutenção">
+  </div>
+  <div class="titulo-area">
+    <div class="titulo"><h1>Pedido de Automação</h1></div>
+    <div class="subtitulo">Grupo 360 Manutenção</div>
+  </div>
 </header>
 
 <main class="container">
@@ -462,7 +475,7 @@ function apiCall(action, params) {
 
   return new Promise(function(resolve, reject) {
     const callbackName =
-      '__api360_' + Date.now() + '_' + (++apiCallbackSeq);
+      'api360cb' + Date.now() + 'x' + (++apiCallbackSeq);
 
     const script = document.createElement('script');
 
@@ -531,6 +544,8 @@ function apiCall(action, params) {
       ));
     };
 
+    script.async = true;
+    script.charset = 'UTF-8';
     script.src = API_URL + '?' + query.toString() + '&_=' + Date.now();
     document.head.appendChild(script);
   });
@@ -706,6 +721,7 @@ function carregarCatalogoMateriais() {
         '<div class="catalogo-vazio" style="color:#b42318;">' +
         '<strong>Erro ao carregar materiais.</strong><br><br>' +
         escapar(erro.message || erro) +
+        '<br><br><button class="botao" type="button" onclick="carregarCatalogoMateriais()">🔄 TENTAR NOVAMENTE</button>' +
         '</div>';
       document.getElementById('contadorCatalogo').innerText = 'Erro';
       document.getElementById('paginacaoCatalogo').innerHTML = '';
