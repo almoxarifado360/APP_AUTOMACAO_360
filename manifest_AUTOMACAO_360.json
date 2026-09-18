@@ -1,0 +1,27 @@
+{
+  "name": "Pedido de Automação | Grupo 360",
+  "short_name": "Automação 360",
+  "description": "Aplicativo de pedidos de materiais de automação do Grupo 360 Manutenção.",
+  "lang": "pt-BR",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#093272",
+  "theme_color": "#093272",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
