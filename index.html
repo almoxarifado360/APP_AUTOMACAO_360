@@ -396,6 +396,17 @@ footer{
   .dados-ficha{grid-template-columns:1fr}
 }
 </style>
+<script>
+// Registra o Service Worker para habilitar a instalação como PWA no GitHub Pages.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .catch(function (erro) {
+        console.warn('Service Worker não registrado:', erro);
+      });
+  });
+}
+</script>
 </head>
 <body>
 
