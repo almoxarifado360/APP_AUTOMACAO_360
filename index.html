@@ -483,6 +483,7 @@ function apiCall(action, params) {
     function limpar() {
       if (finalizado) return;
       finalizado = true;
+      if (tempoLimite) clearTimeout(tempoLimite);
       try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
       if (script.parentNode) script.parentNode.removeChild(script);
     }
@@ -502,13 +503,36 @@ function apiCall(action, params) {
       resolve(resposta.dados);
     };
 
-    script.onerror = function() {
+    let tempoLimite = setTimeout(function() {
       limpar();
-      reject(new Error('Não foi possível conectar ao servidor.'));
+      reject(new Error(
+        'A API não respondeu. Verifique se a implantação do Apps Script está publicada como "qualquer pessoa".'
+      ));
+    }, 20000);
+
+    script.onload = function() {
+      // O callback é quem encerra a requisição.
+      // Se o script carregar mas o callback não executar,
+      // o retorno da API não veio em JSONP válido.
+      setTimeout(function() {
+        if (!finalizado) {
+          limpar();
+          reject(new Error(
+            'O servidor foi acessado, mas não retornou uma resposta JSONP válida.'
+          ));
+        }
+      }, 1500);
     };
 
-    script.src = API_URL + '?' + query.toString();
-    document.body.appendChild(script);
+    script.onerror = function() {
+      limpar();
+      reject(new Error(
+        'Não foi possível carregar a API do Apps Script. Verifique a implantação do Web App.'
+      ));
+    };
+
+    script.src = API_URL + '?' + query.toString() + '&_=' + Date.now();
+    document.head.appendChild(script);
   });
 }
 
