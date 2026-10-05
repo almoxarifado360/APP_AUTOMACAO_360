@@ -1,4 +1,4 @@
-const CACHE_NAME = 'automacao-360-v1';
+const CACHE_NAME = 'automacao-360-v2';
 const APP_SHELL = [
   './',
   './index.html',
