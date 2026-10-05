@@ -786,7 +786,11 @@ function sincronizarEstoquesSelecionados() {
     const produto = catalogoMateriais.find(function(p) {
       return String(p.codigo) === String(item.codigo);
     });
-    if (produto) item.estoque = Number(produto.estoque) || 0;
+    if (produto) {
+      item.estoque = Number(produto.estoque) || 0;
+      item.reservado = Number(produto.reservado) || 0;
+      item.disponivel = Number(produto.disponivel !== undefined ? produto.disponivel : produto.estoque) || 0;
+    }
   });
   renderizarMateriais();
 }
@@ -873,7 +877,10 @@ function mostrarResultados(produtos) {
           '<div class="detalhes">Fab.: ' + escapar(produto.codigoFabricante || '-') + '</div>' +
         '</td>' +
         '<td><div class="marca">' + escapar(produto.marca || '-') + '</div></td>' +
-        '<td><div class="estoque">' + Number(produto.estoque || 0) + '</div></td>' +
+        '<td>' +
+          '<div class="estoque">' + Number(produto.disponivel !== undefined ? produto.disponivel : produto.estoque || 0) + '</div>' +
+          '<div class="detalhes" style="text-align:center">Físico: ' + Number(produto.estoque || 0) + ' • Reservado: ' + Number(produto.reservado || 0) + '</div>' +
+        '</td>' +
         '<td class="acao">' +
           '<button class="botao" onclick=\'adicionarProduto(' + dadosProduto + ')\'>+ ADICIONAR</button>' +
         '</td>' +
@@ -946,6 +953,12 @@ function mudarPaginaCatalogo(direcao) {
 
           estoque:
             Number(produto.estoque) || 0,
+
+          reservado:
+            Number(produto.reservado) || 0,
+
+          disponivel:
+            Number(produto.disponivel !== undefined ? produto.disponivel : produto.estoque) || 0,
 
           quantidade:
             1
@@ -1029,8 +1042,12 @@ function mudarPaginaCatalogo(direcao) {
 
                 <br>
 
-                Estoque atual:
+                Estoque físico:
                 <strong>${item.estoque}</strong>
+                | Reservado:
+                <strong>${item.reservado || 0}</strong>
+                | Disponível:
+                <strong>${item.disponivel !== undefined ? item.disponivel : item.estoque}</strong>
 
               </div>
 
@@ -1548,22 +1565,19 @@ function mudarPaginaCatalogo(direcao) {
 
 
         if (
-          item.disponibilidade ===
-          'SEM ESTOQUE'
+          item.disponibilidade === 'SEM ESTOQUE' ||
+          item.disponibilidade === 'SEM DISPONIBILIDADE'
         ) {
-
-          classe =
-            'sem-estoque';
-
+          classe = 'sem-estoque';
         }
         else if (
-          item.disponibilidade ===
-          'ESTOQUE INSUFICIENTE'
+          item.disponibilidade === 'ESTOQUE INSUFICIENTE' ||
+          item.disponibilidade === 'DISPONIBILIDADE INSUFICIENTE'
         ) {
-
-          classe =
-            'insuficiente';
-
+          classe = 'insuficiente';
+        }
+        else if (item.disponibilidade === 'RESERVADO') {
+          classe = 'disponivel';
         }
 
 
@@ -1602,6 +1616,16 @@ function mudarPaginaCatalogo(direcao) {
 
             <td class="estoque-numero">
               ${item.estoque}
+            </td>
+
+
+            <td class="estoque-numero">
+              ${item.reservado || 0}
+            </td>
+
+
+            <td class="estoque-numero">
+              <strong>${item.disponivel !== undefined ? item.disponivel : item.estoque}</strong>
             </td>
 
 
@@ -1856,9 +1880,13 @@ function mudarPaginaCatalogo(direcao) {
 
                 <th>QTD.</th>
 
-                <th>ESTOQUE</th>
+                <th>ESTOQUE FÍSICO</th>
 
-                <th>DISPONIBILIDADE</th>
+                <th>RESERVADO</th>
+
+                <th>DISPONÍVEL</th>
+
+                <th>STATUS</th>
 
               </tr>
 
