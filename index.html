@@ -219,7 +219,6 @@ input:focus,select:focus{
 .botao:disabled{opacity:.55;cursor:not-allowed}
 .botao-cinza{background:#e6edf5;color:#18304e}
 .botao-verde{background:var(--verde);color:#fff}
-.botao-azul{background:#1769d1;color:#fff}
 .botao-vermelho{background:var(--vermelho);color:#fff}
 .catalogo-paginacao{
   display:flex;
@@ -463,9 +462,9 @@ if ('serviceWorker' in navigator) {
     </div>
 
     <div class="card">
-      <div id="tituloMateriaisSolicitados" class="card-titulo">🧰 Materiais solicitados</div>
+      <div class="card-titulo">🧰 Materiais solicitados</div>
       <div id="listaMateriais"><div class="mensagem">Nenhum material adicionado.</div></div>
-      <div class="salvar-area"><button id="btnSalvarPedido" class="botao-salvar" onclick="salvarPedido()">💾 SALVAR PEDIDO</button><button id="btnCancelarEdicao" class="botao botao-cinza" style="display:none;margin-top:8px" onclick="cancelarEdicaoPedido()">✖ CANCELAR EDIÇÃO</button></div>
+      <div class="salvar-area"><button id="btnCancelarEdicao" class="botao botao-cinza" style="display:none" onclick="cancelarEdicao()">✖ CANCELAR EDIÇÃO</button><button id="btnSalvarPedido" class="botao-salvar" onclick="salvarPedido()">💾 SALVAR PEDIDO</button></div>
     </div>
   </section>
 
@@ -594,7 +593,7 @@ function mostrarErroInicial(texto) {
 
     let fichaAtual = null;
 
-    let pedidoEmEdicao = null;
+    let numeroPedidoEditando = null;
 
 
     // ======================================================
@@ -626,6 +625,17 @@ document
 
       limparTelas();
 
+      numeroPedidoEditando = null;
+      materiaisSelecionados = [];
+      const solicitanteEl = document.getElementById('solicitante');
+      const osEl = document.getElementById('os');
+      const clienteEl = document.getElementById('cliente');
+      if (solicitanteEl) solicitanteEl.value = '';
+      if (osEl) osEl.value = '';
+      if (clienteEl) clienteEl.value = '';
+      renderizarMateriais();
+      atualizarModoEdicao();
+
       document
         .getElementById('telaNova')
         .style.display = 'block';
@@ -634,11 +644,7 @@ document
         .getElementById('btnNova')
         .classList.add('ativo');
 
-      // Sempre que a tela de novo pedido for aberta,
-      // consulta novamente o estoque no servidor.
-      // Isso evita trabalhar com o estoque que estava na tela
-      // quando o aplicativo foi aberto.
-      atualizarCatalogoParaNovoPedido();
+      if (!catalogoCarregado) carregarCatalogoMateriais();
     }
 
 
@@ -719,80 +725,6 @@ function filtrarMateriaisLocal(termo) {
         (compactada && textoCompacto.includes(compactada));
     });
   });
-}
-
-function atualizarCatalogoParaNovoPedido() {
-  const resultados = document.getElementById('resultados');
-  if (!resultados) return;
-
-  // Mantém o que já foi digitado na pesquisa, mas atualiza
-  // os estoques diretamente da planilha através da API.
-  const termoAtual =
-    document.getElementById('campoPesquisa')
-      ? document.getElementById('campoPesquisa').value
-      : '';
-
-  resultados.innerHTML =
-    '<div class="catalogo-vazio">⏳ Atualizando estoque...</div>';
-
-  apiCall('catalogo')
-    .then(function(produtos) {
-      catalogoMateriais = Array.isArray(produtos) ? produtos : [];
-      catalogoCarregado = true;
-      paginaCatalogo = 1;
-      sincronizarEstoquesSelecionados();
-
-      if (catalogoMateriais.length === 0) {
-        resultados.innerHTML =
-          '<div class="catalogo-vazio">Nenhum material disponível.</div>';
-        const contador = document.getElementById('contadorCatalogo');
-        const paginacao = document.getElementById('paginacaoCatalogo');
-        if (contador) contador.innerText = '0 materiais';
-        if (paginacao) paginacao.innerHTML = '';
-        return;
-      }
-
-      mostrarResultados(filtrarMateriaisLocal(termoAtual));
-    })
-    .catch(function(erro) {
-      // Se já existe um catálogo válido na memória, não o apaga.
-      // Apenas informa que a atualização não foi possível.
-      if (catalogoMateriais.length > 0) {
-        mostrarResultados(filtrarMateriaisLocal(termoAtual));
-        const contador = document.getElementById('contadorCatalogo');
-        if (contador) {
-          contador.innerText = 'Atualização falhou';
-          contador.title = erro.message || String(erro);
-        }
-        return;
-      }
-
-      catalogoCarregado = false;
-      resultados.innerHTML =
-        '<div class="catalogo-vazio" style="color:#b42318;">' +
-        '<strong>Erro ao atualizar materiais.</strong><br><br>' +
-        escapar(erro.message || erro) +
-        '<br><br><button class="botao" type="button" onclick="atualizarCatalogoParaNovoPedido()">🔄 TENTAR NOVAMENTE</button>' +
-        '</div>';
-      const contador = document.getElementById('contadorCatalogo');
-      const paginacao = document.getElementById('paginacaoCatalogo');
-      if (contador) contador.innerText = 'Erro';
-      if (paginacao) paginacao.innerHTML = '';
-    });
-}
-
-function sincronizarEstoquesSelecionados() {
-  materiaisSelecionados.forEach(function(item) {
-    const produto = catalogoMateriais.find(function(p) {
-      return String(p.codigo) === String(item.codigo);
-    });
-    if (produto) {
-      item.estoque = Number(produto.estoque) || 0;
-      item.reservado = Number(produto.reservado) || 0;
-      item.disponivel = Number(produto.disponivel !== undefined ? produto.disponivel : produto.estoque) || 0;
-    }
-  });
-  renderizarMateriais();
 }
 
 function carregarCatalogoMateriais() {
@@ -877,10 +809,7 @@ function mostrarResultados(produtos) {
           '<div class="detalhes">Fab.: ' + escapar(produto.codigoFabricante || '-') + '</div>' +
         '</td>' +
         '<td><div class="marca">' + escapar(produto.marca || '-') + '</div></td>' +
-        '<td>' +
-          '<div class="estoque">' + Number(produto.disponivel !== undefined ? produto.disponivel : produto.estoque || 0) + '</div>' +
-          '<div class="detalhes" style="text-align:center">Físico: ' + Number(produto.estoque || 0) + ' • Reservado: ' + Number(produto.reservado || 0) + '</div>' +
-        '</td>' +
+        '<td><div class="estoque">' + Number(produto.estoque || 0) + '</div></td>' +
         '<td class="acao">' +
           '<button class="botao" onclick=\'adicionarProduto(' + dadosProduto + ')\'>+ ADICIONAR</button>' +
         '</td>' +
@@ -953,12 +882,6 @@ function mudarPaginaCatalogo(direcao) {
 
           estoque:
             Number(produto.estoque) || 0,
-
-          reservado:
-            Number(produto.reservado) || 0,
-
-          disponivel:
-            Number(produto.disponivel !== undefined ? produto.disponivel : produto.estoque) || 0,
 
           quantidade:
             1
@@ -1042,12 +965,8 @@ function mudarPaginaCatalogo(direcao) {
 
                 <br>
 
-                Estoque físico:
+                Estoque atual:
                 <strong>${item.estoque}</strong>
-                | Reservado:
-                <strong>${item.reservado || 0}</strong>
-                | Disponível:
-                <strong>${item.disponivel !== undefined ? item.disponivel : item.estoque}</strong>
 
               </div>
 
@@ -1126,6 +1045,40 @@ function mudarPaginaCatalogo(direcao) {
       renderizarMateriais();
 
     }
+    function atualizarModoEdicao() {
+
+      const botao = document.getElementById('btnSalvarPedido');
+      const cancelar = document.getElementById('btnCancelarEdicao');
+      if (!botao) return;
+
+      if (numeroPedidoEditando) {
+        botao.innerText = '💾 ATUALIZAR PEDIDO';
+        if (cancelar) cancelar.style.display = 'inline-flex';
+      } else {
+        botao.innerText = '💾 SALVAR PEDIDO';
+        if (cancelar) cancelar.style.display = 'none';
+      }
+    }
+
+
+    function cancelarEdicao() {
+
+      numeroPedidoEditando = null;
+      materiaisSelecionados = [];
+
+      const solicitante = document.getElementById('solicitante');
+      const os = document.getElementById('os');
+      const cliente = document.getElementById('cliente');
+      if (solicitante) solicitante.value = '';
+      if (os) os.value = '';
+      if (cliente) cliente.value = '';
+
+      renderizarMateriais();
+      atualizarModoEdicao();
+      mostrarFichas();
+    }
+
+
     function salvarPedido() {
 
       const solicitante = document.getElementById('solicitante').value;
@@ -1160,297 +1113,32 @@ function mudarPaginaCatalogo(direcao) {
       const botao = document.getElementById('btnSalvarPedido');
       if (botao) {
         botao.disabled = true;
-        botao.innerText = pedidoEmEdicao ? '⏳ ATUALIZANDO...' : '⏳ SALVANDO...';
+        botao.innerText = numeroPedidoEditando ? '⏳ ATUALIZANDO...' : '⏳ SALVANDO...';
       }
 
-      const acao = pedidoEmEdicao ? 'editarPedidoRetirado' : 'criarPedido';
-      const payload = pedidoEmEdicao
-        ? { numeroPedido: pedidoEmEdicao, itens: dados.itens }
-        : dados;
+      const acao = numeroPedidoEditando ? 'editarPedido' : 'criarPedido';
+      if (numeroPedidoEditando) dados.numeroPedido = numeroPedidoEditando;
 
-      apiCall(acao, { payload: JSON.stringify(payload) })
+      apiCall(acao, { payload: JSON.stringify(dados) })
         .then(function(resposta) {
-          if (pedidoEmEdicao) {
-            alert('✏️ ' + resposta.mensagem);
-            const numero = pedidoEmEdicao;
-            cancelarEdicaoPedido(true);
-            mostrarFichas();
-            setTimeout(function() { abrirFicha(numero); }, 150);
-          } else {
-            alert('Pedido ' + resposta.pedido + ' criado com sucesso!');
-            materiaisSelecionados = [];
-            document.getElementById('solicitante').value = '';
-            document.getElementById('os').value = '';
-            document.getElementById('cliente').value = '';
-            renderizarMateriais();
-            if (botao) {
-              botao.disabled = false;
-              botao.innerText = '💾 SALVAR PEDIDO';
-            }
-            mostrarFichas();
-          }
+          alert('✓ ' + resposta.mensagem);
+
+          numeroPedidoEditando = null;
+          materiaisSelecionados = [];
+          document.getElementById('solicitante').value = '';
+          document.getElementById('os').value = '';
+          document.getElementById('cliente').value = '';
+          renderizarMateriais();
+          atualizarModoEdicao();
+          mostrarFichas();
         })
         .catch(function(erro) {
-          alert((pedidoEmEdicao ? 'Erro ao atualizar pedido:\n\n' : 'Erro ao salvar pedido:\n\n') + (erro.message || erro));
+          alert((numeroPedidoEditando ? 'Erro ao atualizar pedido:\n\n' : 'Erro ao salvar pedido:\n\n') + (erro.message || erro));
           if (botao) {
             botao.disabled = false;
-            botao.innerText = pedidoEmEdicao ? '💾 SALVAR ALTERAÇÕES' : '💾 SALVAR PEDIDO';
+            atualizarModoEdicao();
           }
         });
-    }
-
-    function editarPedidoRetirado(numeroPedido) {
-      apiCall('buscarFichaPedido', { numeroPedido: numeroPedido })
-        .then(function(ficha) {
-          if (!ficha || !ficha.pedido || ficha.pedido.status !== 'RETIRADO') {
-            throw new Error('Somente pedidos RETIRADOS podem ser editados.');
-          }
-
-          pedidoEmEdicao = numeroPedido;
-          materiaisSelecionados = (ficha.itens || []).map(function(item) {
-            return {
-              codigo: item.codigo,
-              descricao: item.descricao,
-              marca: item.marca,
-              codigoFabricante: item.codigoFabricante,
-              estoque: 0,
-              quantidade: Number(item.quantidade) || 1
-            };
-          });
-
-          document.getElementById('solicitante').value = ficha.pedido.solicitante || '';
-          document.getElementById('os').value = ficha.pedido.os || '';
-          document.getElementById('cliente').value = ficha.pedido.cliente || '';
-
-          document.getElementById('telaFichas').style.display = 'none';
-          document.getElementById('telaDetalhe').style.display = 'none';
-          document.getElementById('telaNova').style.display = 'block';
-          document.getElementById('btnNova').classList.add('ativo');
-          document.getElementById('btnFichas').classList.remove('ativo');
-
-          const titulo = document.getElementById('tituloMateriaisSolicitados');
-          if (titulo) titulo.innerText = '✏️ Editando materiais — ' + numeroPedido;
-
-          const botao = document.getElementById('btnSalvarPedido');
-          if (botao) botao.innerText = '💾 SALVAR ALTERAÇÕES';
-
-          const cancelar = document.getElementById('btnCancelarEdicao');
-          if (cancelar) cancelar.style.display = 'block';
-
-          renderizarMateriais();
-          atualizarCatalogoParaNovoPedido();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        })
-        .catch(function(erro) {
-          alert('Não foi possível abrir a edição:\n\n' + (erro.message || erro));
-        });
-    }
-
-    function cancelarEdicaoPedido(silencioso) {
-      pedidoEmEdicao = null;
-      materiaisSelecionados = [];
-
-      const titulo = document.getElementById('tituloMateriaisSolicitados');
-      if (titulo) titulo.innerText = '🧰 Materiais solicitados';
-
-      const botao = document.getElementById('btnSalvarPedido');
-      if (botao) {
-        botao.disabled = false;
-        botao.innerText = '💾 SALVAR PEDIDO';
-      }
-
-      const cancelar = document.getElementById('btnCancelarEdicao');
-      if (cancelar) cancelar.style.display = 'none';
-
-      renderizarMateriais();
-
-      if (!silencioso) mostrarFichas();
-    }
-
-
-    // ======================================================
-    // CARREGAR FICHAS
-    // ======================================================
-
-    function carregarFichas() {
-
-      const lista =
-        document
-          .getElementById('listaFichas');
-
-
-      lista.innerHTML =
-        '<div class="loading">' +
-        '⏳ Carregando fichas...' +
-        '</div>';
-
-
-      apiCall('listarPedidos')
-        .then(function(fichas) {
-          fichasCarregadas = fichas || [];
-          renderizarFichas(fichasCarregadas);
-        })
-        .catch(function(erro) {
-          lista.innerHTML =
-            '<div class="mensagem" style="color:#a61e1e;">' +
-            'Erro ao carregar fichas:<br><br>' +
-            escapar(erro.message || erro) +
-            '</div>';
-        });
-
-    }
-
-
-    // ======================================================
-    // RENDERIZAR FICHAS
-    // ======================================================
-
-    function renderizarFichas(fichas) {
-
-      const lista =
-        document
-          .getElementById('listaFichas');
-
-
-      if (
-        !fichas ||
-        fichas.length === 0
-      ) {
-
-        lista.innerHTML =
-          '<div class="mensagem" style="text-align:center; padding:20px;">' +
-          'Nenhuma ficha cadastrada.' +
-          '</div>';
-
-        return;
-
-      }
-
-
-      lista.innerHTML = '';
-
-
-      fichas.forEach(function(ficha) {
-
-        const div =
-          document.createElement('div');
-
-
-        div.className =
-          'ficha';
-
-
-        div.innerHTML = `
-
-          <div class="ficha-numero">
-            ${escapar(ficha.pedido)}
-          </div>
-
-
-          <div class="ficha-info">
-
-            <strong>
-              ${escapar(ficha.cliente || 'Sem cliente')}
-            </strong>
-
-            <br>
-
-            Solicitante:
-            ${escapar(ficha.solicitante)}
-
-            <br>
-
-            OS:
-            ${escapar(ficha.os || '-')}
-
-          </div>
-
-
-          <div>
-            ${montarStatus(ficha.status)}
-          </div>
-
-
-          <button
-            class="botao"
-            onclick="abrirFicha('${escaparJs(ficha.pedido)}')"
-          >
-            🔍 ABRIR FICHA
-          </button>
-
-        `;
-
-
-        lista.appendChild(div);
-
-      });
-
-    }
-
-
-    // ======================================================
-    // FILTRAR FICHAS
-    // ======================================================
-
-    function filtrarFichas() {
-
-      const termo =
-        document
-          .getElementById('campoFiltroFichas')
-          .value
-          .trim()
-          .toLowerCase();
-
-
-      if (!termo) {
-
-        renderizarFichas(
-          fichasCarregadas
-        );
-
-        return;
-
-      }
-
-
-      const filtradas =
-        fichasCarregadas.filter(
-          function(ficha) {
-
-            return (
-
-              String(ficha.pedido || '')
-                .toLowerCase()
-                .includes(termo)
-
-              ||
-
-              String(ficha.os || '')
-                .toLowerCase()
-                .includes(termo)
-
-              ||
-
-              String(ficha.cliente || '')
-                .toLowerCase()
-                .includes(termo)
-
-              ||
-
-              String(ficha.solicitante || '')
-                .toLowerCase()
-                .includes(termo)
-
-            );
-
-          }
-        );
-
-
-      renderizarFichas(
-        filtradas
-      );
-
     }
 
 
@@ -1565,19 +1253,22 @@ function mudarPaginaCatalogo(direcao) {
 
 
         if (
-          item.disponibilidade === 'SEM ESTOQUE' ||
-          item.disponibilidade === 'SEM DISPONIBILIDADE'
+          item.disponibilidade ===
+          'SEM ESTOQUE'
         ) {
-          classe = 'sem-estoque';
+
+          classe =
+            'sem-estoque';
+
         }
         else if (
-          item.disponibilidade === 'ESTOQUE INSUFICIENTE' ||
-          item.disponibilidade === 'DISPONIBILIDADE INSUFICIENTE'
+          item.disponibilidade ===
+          'ESTOQUE INSUFICIENTE'
         ) {
-          classe = 'insuficiente';
-        }
-        else if (item.disponibilidade === 'RESERVADO') {
-          classe = 'disponivel';
+
+          classe =
+            'insuficiente';
+
         }
 
 
@@ -1619,16 +1310,6 @@ function mudarPaginaCatalogo(direcao) {
             </td>
 
 
-            <td class="estoque-numero">
-              ${item.reservado || 0}
-            </td>
-
-
-            <td class="estoque-numero">
-              <strong>${item.disponivel !== undefined ? item.disponivel : item.estoque}</strong>
-            </td>
-
-
             <td class="${classe}">
               ${escapar(item.disponibilidade)}
             </td>
@@ -1664,6 +1345,14 @@ function mudarPaginaCatalogo(direcao) {
         pedido.status ===
         'AGUARDANDO ESTOQUE'
       ) {
+
+        botoes += `
+          <div style="display:flex;flex-wrap:wrap;gap:8px;width:100%;margin-bottom:10px">
+            <button class="botao botao-cinza" onclick="editarPedido('${escaparJs(pedido.pedido)}')">✏️ EDITAR PEDIDO</button>
+            <button class="botao botao-cinza" onclick="desfazerPedido('${escaparJs(pedido.pedido)}')">↩️ DESFAZER PEDIDO</button>
+            <button class="botao botao-vermelho" onclick="excluirPedido('${escaparJs(pedido.pedido)}')">🗑️ EXCLUIR PEDIDO</button>
+          </div>
+        `;
 
         if (podeSeparar) {
 
@@ -1726,13 +1415,6 @@ function mudarPaginaCatalogo(direcao) {
           <span class="status status-verde">
             ✅ MATERIAL RETIRADO
           </span>
-
-          <button
-            class="botao botao-azul"
-            onclick="editarPedidoRetirado('${escaparJs(pedido.pedido)}')"
-          >
-            ✏️ EDITAR MATERIAIS
-          </button>
 
           <button
             class="botao botao-vermelho"
@@ -1880,13 +1562,9 @@ function mudarPaginaCatalogo(direcao) {
 
                 <th>QTD.</th>
 
-                <th>ESTOQUE FÍSICO</th>
+                <th>ESTOQUE</th>
 
-                <th>RESERVADO</th>
-
-                <th>DISPONÍVEL</th>
-
-                <th>STATUS</th>
+                <th>DISPONIBILIDADE</th>
 
               </tr>
 
@@ -1912,6 +1590,104 @@ function mudarPaginaCatalogo(direcao) {
 
       `;
 
+    }
+
+
+    // ======================================================
+    // EDITAR PEDIDO
+    // ======================================================
+
+    function editarPedido(numeroPedido) {
+
+      if (!confirm('Deseja editar o pedido ' + numeroPedido + '?')) return;
+
+      Promise.all([
+        apiCall('buscarFichaPedido', { numeroPedido: numeroPedido }),
+        apiCall('consultarEstoquePedido', { numeroPedido: numeroPedido })
+      ])
+        .then(function(respostas) {
+          const ficha = respostas[0];
+          const conferencia = respostas[1];
+          const mapaEstoque = {};
+
+          (conferencia.itens || []).forEach(function(item) {
+            mapaEstoque[String(item.codigo || '').toUpperCase()] = item;
+          });
+
+          numeroPedidoEditando = numeroPedido;
+          materiaisSelecionados = (ficha.itens || []).map(function(item) {
+            const estoque = mapaEstoque[String(item.codigo || '').toUpperCase()];
+            return {
+              codigo: item.codigo,
+              descricao: item.descricao,
+              marca: item.marca,
+              codigoFabricante: item.codigoFabricante,
+              estoque: estoque ? Number(estoque.estoque) || 0 : 0,
+              quantidade: Number(item.quantidade) || 1
+            };
+          });
+
+          limparTelas();
+          document.getElementById('telaNova').style.display = 'block';
+          document.getElementById('btnNova').classList.add('ativo');
+          document.getElementById('solicitante').value = ficha.pedido.solicitante || '';
+          document.getElementById('os').value = ficha.pedido.os || '';
+          document.getElementById('cliente').value = ficha.pedido.cliente || '';
+          renderizarMateriais();
+          atualizarModoEdicao();
+          if (!catalogoCarregado) carregarCatalogoMateriais();
+          window.scrollTo({top:0, behavior:'smooth'});
+        })
+        .catch(function(erro) {
+          alert('Não foi possível carregar o pedido para edição:\n\n' + (erro.message || erro));
+        });
+    }
+
+
+    // ======================================================
+    // DESFAZER PEDIDO
+    // ======================================================
+
+    function desfazerPedido(numeroPedido) {
+
+      if (!confirm(
+        'DESFAZER PEDIDO ' + numeroPedido + '?\n\n' +
+        'O pedido ficará marcado como DESFEITO.\n' +
+        'Nenhum material será retirado do estoque.'
+      )) return;
+
+      apiCall('desfazerPedido', { numeroPedido: numeroPedido })
+        .then(function(resposta) {
+          alert('↩️ ' + resposta.mensagem);
+          mostrarFichas();
+        })
+        .catch(function(erro) {
+          alert('Não foi possível desfazer o pedido:\n\n' + (erro.message || erro));
+        });
+    }
+
+
+    // ======================================================
+    // EXCLUIR PEDIDO
+    // ======================================================
+
+    function excluirPedido(numeroPedido) {
+
+      if (!confirm(
+        'EXCLUIR PEDIDO ' + numeroPedido + '?\n\n' +
+        'Esta ação apagará a ficha e todos os materiais dela.\n' +
+        'Não haverá baixa no estoque.\n\n' +
+        'Esta operação não pode ser desfeita.'
+      )) return;
+
+      apiCall('excluirPedido', { numeroPedido: numeroPedido })
+        .then(function(resposta) {
+          alert('🗑️ ' + resposta.mensagem);
+          mostrarFichas();
+        })
+        .catch(function(erro) {
+          alert('Não foi possível excluir o pedido:\n\n' + (erro.message || erro));
+        });
     }
 
 
@@ -2077,6 +1853,20 @@ function mudarPaginaCatalogo(direcao) {
 
       if (
         status ===
+        'DESFEITO'
+      ) {
+
+        return `
+          <span class="status status-vermelho">
+            ↩️ DESFEITO
+          </span>
+        `;
+
+      }
+
+
+      if (
+        status ===
         'DEVOLVIDO'
       ) {
 
@@ -2159,7 +1949,7 @@ function mudarPaginaCatalogo(direcao) {
       // Pequeno atraso para garantir que a tela já esteja renderizada
       // antes da primeira chamada ao Apps Script.
       setTimeout(function() {
-        carregarCatalogoMateriais();
+        carregarCatalogoMateriais(0);
       }, 150);
     }
 
