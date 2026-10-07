@@ -1,4 +1,5 @@
-const CACHE_NAME = 'automacao-360-v2';
+const CACHE_NAME = 'automacao-360-v3';
+
 const APP_SHELL = [
   './',
   './index.html',
@@ -22,13 +23,19 @@ self.addEventListener('install', function (event) {
 
 self.addEventListener('activate', function (event) {
   event.waitUntil(
-    caches.keys().then(function (keys) {
-      return Promise.all(keys.map(function (key) {
-        if (key !== CACHE_NAME) return caches.delete(key);
-      }));
-    }).then(function () {
-      return self.clients.claim();
-    })
+    caches.keys()
+      .then(function (keys) {
+        return Promise.all(
+          keys.map(function (key) {
+            if (key !== CACHE_NAME) {
+              return caches.delete(key);
+            }
+          })
+        );
+      })
+      .then(function () {
+        return self.clients.claim();
+      })
   );
 });
 
@@ -36,42 +43,48 @@ self.addEventListener('fetch', function (event) {
   const request = event.request;
   const url = new URL(request.url);
 
-  // Nunca intercepta chamadas da API do Apps Script.
+  // Nunca intercepta chamadas externas, incluindo a API do Apps Script.
   if (url.origin !== self.location.origin) return;
 
+  // O aplicativo só trata requisições GET.
   if (request.method !== 'GET') return;
 
-  // Para navegação, tenta a versão atual da página e usa o cache como fallback.
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).then(function (response) {
-        const copia = response.clone();
-        caches.open(CACHE_NAME).then(function (cache) {
-          cache.put('./index.html', copia);
-        });
-        return response;
-      }).catch(function () {
-        return caches.match('./index.html');
-      })
-    );
-    return;
-  }
-
-  // Arquivos estáticos: cache primeiro e rede como atualização.
+  /*
+   * REDE PRIMEIRO:
+   * Sempre tenta buscar a versão atual do GitHub Pages.
+   * O cache fica como fallback para uso offline.
+   */
   event.respondWith(
-    caches.match(request).then(function (cached) {
-      const atualizado = fetch(request).then(function (response) {
+    fetch(request)
+      .then(function (response) {
+
         if (response && response.ok) {
           const copia = response.clone();
-          caches.open(CACHE_NAME).then(function (cache) {
-            cache.put(request, copia);
-          });
+
+          caches.open(CACHE_NAME)
+            .then(function (cache) {
+              cache.put(request, copia);
+            });
         }
+
         return response;
-      }).catch(function () {
-        return cached;
-      });
-      return cached || atualizado;
-    })
+      })
+      .catch(function () {
+
+        return caches.match(request)
+          .then(function (cached) {
+
+            if (cached) {
+              return cached;
+            }
+
+            if (request.mode === 'navigate') {
+              return caches.match('./index.html');
+            }
+
+            return Response.error();
+          });
+
+      })
   );
 });
