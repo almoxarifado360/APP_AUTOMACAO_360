@@ -662,6 +662,110 @@ document
       mostrarFichas();
     }
 
+    // ======================================================
+    // FICHAS / PEDIDOS
+    // ======================================================
+
+    function carregarFichas() {
+      const lista = document.getElementById('listaFichas');
+
+      if (!lista) return;
+
+      lista.innerHTML =
+        '<div class="loading">⏳ Carregando fichas...</div>';
+
+      apiCall('listarPedidos')
+        .then(function(fichas) {
+          fichasCarregadas = Array.isArray(fichas) ? fichas : [];
+          renderizarFichas(fichasCarregadas);
+        })
+        .catch(function(erro) {
+          console.error('carregarFichas:', erro);
+          lista.innerHTML =
+            '<div class="mensagem" style="color:#a61e1e;">' +
+            'Erro ao carregar fichas:<br><br>' +
+            escapar(erro.message || erro) +
+            '</div>';
+        });
+    }
+
+    // ======================================================
+    // RENDERIZAR FICHAS
+    // ======================================================
+
+    function renderizarFichas(fichas) {
+      const lista = document.getElementById('listaFichas');
+
+      if (!lista) return;
+
+      if (!fichas || fichas.length === 0) {
+        lista.innerHTML =
+          '<div class="mensagem" style="text-align:center;padding:20px;">' +
+          'Nenhuma ficha cadastrada.' +
+          '</div>';
+        return;
+      }
+
+      lista.innerHTML = '';
+
+      fichas.forEach(function(ficha) {
+        const div = document.createElement('div');
+        div.className = 'ficha';
+
+        div.innerHTML = `
+          <div class="ficha-numero">
+            ${escapar(ficha.pedido || '')}
+          </div>
+
+          <div class="ficha-info">
+            <strong>${escapar(ficha.cliente || 'Sem cliente')}</strong>
+            <br>
+            Solicitante: ${escapar(ficha.solicitante || '')}
+            <br>
+            OS: ${escapar(ficha.os || '-')}
+          </div>
+
+          <div>
+            ${montarStatus(ficha.status)}
+          </div>
+
+          <button
+            class="botao"
+            onclick="abrirFicha('${escaparJs(ficha.pedido || '')}')"
+          >
+            🔍 ABRIR FICHA
+          </button>
+        `;
+
+        lista.appendChild(div);
+      });
+    }
+
+    // ======================================================
+    // FILTRAR FICHAS
+    // ======================================================
+
+    function filtrarFichas() {
+      const campo = document.getElementById('campoFiltroFichas');
+      const termo = campo ? campo.value.trim().toLowerCase() : '';
+
+      if (!termo) {
+        renderizarFichas(fichasCarregadas || []);
+        return;
+      }
+
+      const filtradas = (fichasCarregadas || []).filter(function(ficha) {
+        return (
+          String(ficha.pedido || '').toLowerCase().includes(termo) ||
+          String(ficha.os || '').toLowerCase().includes(termo) ||
+          String(ficha.cliente || '').toLowerCase().includes(termo) ||
+          String(ficha.solicitante || '').toLowerCase().includes(termo)
+        );
+      });
+
+      renderizarFichas(filtradas);
+    }
+
 let timerPesquisaMateriais = null;
 let catalogoMateriais = [];
 let catalogoCarregado = false;
