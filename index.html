@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pedido de Automação">
+<meta name="app-version" content="AUTOMACAO-360-V3-COLABORADORES-FICHAS">
 <title>Pedido de Automação | Grupo 360</title>
 
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -400,7 +401,7 @@ footer{
 // Registra o Service Worker para habilitar a instalação como PWA no GitHub Pages.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=20261008-v3', { scope: './' })
       .catch(function (erro) {
         console.warn('Service Worker não registrado:', erro);
       });
@@ -534,25 +535,18 @@ function apiCall(action, params) {
       resolve(resposta.dados);
     };
 
+    // A consulta ao Apps Script pode envolver várias leituras da planilha.
+    // Mantemos uma margem maior para evitar falso timeout.
     let tempoLimite = setTimeout(function() {
       limpar();
       reject(new Error(
-        'A API não respondeu. Verifique se a implantação do Apps Script está publicada como "qualquer pessoa".'
+        'A API não respondeu dentro do tempo esperado. Verifique a implantação do Apps Script.'
       ));
-    }, 20000);
+    }, 60000);
 
     script.onload = function() {
-      // O callback é quem encerra a requisição.
-      // Se o script carregar mas o callback não executar,
-      // o retorno da API não veio em JSONP válido.
-      setTimeout(function() {
-        if (!finalizado) {
-          limpar();
-          reject(new Error(
-            'O servidor foi acessado, mas não retornou uma resposta JSONP válida.'
-          ));
-        }
-      }, 1500);
+      // O carregamento do <script> não significa que o callback JSONP
+      // já foi executado. O callback é quem finaliza a requisição.
     };
 
     script.onerror = function() {
@@ -577,68 +571,6 @@ function mostrarErroInicial(texto) {
       escapar(texto) +
       '</div>';
   }
-}
-
-// ======================================================
-// COLABORADORES ATIVOS
-// ======================================================
-
-let colaboradoresCarregados = false;
-let colaboradoresCarregando = false;
-
-function carregarColaboradores() {
-  const select = document.getElementById('solicitante');
-  if (!select) return Promise.resolve([]);
-
-  if (colaboradoresCarregados) {
-    return Promise.resolve([]);
-  }
-
-  if (colaboradoresCarregando) return Promise.resolve([]);
-
-  colaboradoresCarregando = true;
-  select.disabled = true;
-  select.innerHTML = '<option value="">⏳ Carregando colaboradores...</option>';
-
-  return apiCall('colaboradores')
-    .then(function(lista) {
-      const colaboradores = Array.isArray(lista) ? lista : [];
-
-      select.innerHTML = '<option value="">Selecione</option>';
-
-      colaboradores.forEach(function(colaborador) {
-        const option = document.createElement('option');
-        option.value = colaborador.nome || '';
-        option.textContent = colaborador.nome || '';
-        if (colaborador.codigo) {
-          option.dataset.codigo = colaborador.codigo;
-        }
-        if (colaborador.empresa) {
-          option.dataset.empresa = colaborador.empresa;
-        }
-        if (colaborador.funcao) {
-          option.dataset.funcao = colaborador.funcao;
-        }
-        select.appendChild(option);
-      });
-
-      colaboradoresCarregados = true;
-
-      if (!colaboradores.length) {
-        select.innerHTML = '<option value="">Nenhum colaborador ativo</option>';
-      }
-
-      return colaboradores;
-    })
-    .catch(function(erro) {
-      select.innerHTML = '<option value="">Erro ao carregar colaboradores</option>';
-      console.error('Erro ao carregar colaboradores:', erro);
-      throw erro;
-    })
-    .finally(function() {
-      colaboradoresCarregando = false;
-      select.disabled = false;
-    });
 }
 
 
@@ -680,6 +612,49 @@ document
     }
 
 
+    function carregarColaboradores() {
+      const select = document.getElementById('solicitante');
+      if (!select) return;
+
+      select.innerHTML = '<option value="">Carregando colaboradores...</option>';
+      select.disabled = true;
+
+      apiCall('colaboradores')
+        .then(function(colaboradores) {
+          const lista = Array.isArray(colaboradores) ? colaboradores : [];
+
+          select.innerHTML = '';
+
+          if (lista.length === 0) {
+            select.innerHTML = '<option value="">Nenhum colaborador ativo</option>';
+            return;
+          }
+
+          const opcaoInicial = document.createElement('option');
+          opcaoInicial.value = '';
+          opcaoInicial.textContent = 'Selecione';
+          select.appendChild(opcaoInicial);
+
+          lista.forEach(function(colaborador) {
+            const option = document.createElement('option');
+            option.value = colaborador.nome || '';
+            option.textContent = colaborador.nome || '';
+            if (colaborador.funcao) {
+              option.title = colaborador.funcao;
+            }
+            select.appendChild(option);
+          });
+        })
+        .catch(function(erro) {
+          console.error('carregarColaboradores:', erro);
+          select.innerHTML = '<option value="">Erro ao carregar colaboradores</option>';
+        })
+        .finally(function() {
+          select.disabled = false;
+        });
+    }
+
+
     function mostrarNovaSolicitacao() {
 
       limparTelas();
@@ -692,6 +667,7 @@ document
       if (solicitanteEl) solicitanteEl.value = '';
       if (osEl) osEl.value = '';
       if (clienteEl) clienteEl.value = '';
+      carregarColaboradores();
       renderizarMateriais();
       atualizarModoEdicao();
 
@@ -702,10 +678,6 @@ document
       document
         .getElementById('btnNova')
         .classList.add('ativo');
-
-      if (!colaboradoresCarregados && !colaboradoresCarregando) {
-        carregarColaboradores().catch(function() {});
-      }
 
       if (!catalogoCarregado) carregarCatalogoMateriais();
     }
@@ -730,6 +702,110 @@ document
     function voltarFichas() {
 
       mostrarFichas();
+    }
+
+    // ======================================================
+    // FICHAS / PEDIDOS
+    // ======================================================
+
+    function carregarFichas() {
+      const lista = document.getElementById('listaFichas');
+
+      if (!lista) return;
+
+      lista.innerHTML =
+        '<div class="loading">⏳ Carregando fichas...</div>';
+
+      apiCall('listarPedidos')
+        .then(function(fichas) {
+          fichasCarregadas = Array.isArray(fichas) ? fichas : [];
+          renderizarFichas(fichasCarregadas);
+        })
+        .catch(function(erro) {
+          console.error('carregarFichas:', erro);
+          lista.innerHTML =
+            '<div class="mensagem" style="color:#a61e1e;">' +
+            'Erro ao carregar fichas:<br><br>' +
+            escapar(erro.message || erro) +
+            '</div>';
+        });
+    }
+
+    // ======================================================
+    // RENDERIZAR FICHAS
+    // ======================================================
+
+    function renderizarFichas(fichas) {
+      const lista = document.getElementById('listaFichas');
+
+      if (!lista) return;
+
+      if (!fichas || fichas.length === 0) {
+        lista.innerHTML =
+          '<div class="mensagem" style="text-align:center;padding:20px;">' +
+          'Nenhuma ficha cadastrada.' +
+          '</div>';
+        return;
+      }
+
+      lista.innerHTML = '';
+
+      fichas.forEach(function(ficha) {
+        const div = document.createElement('div');
+        div.className = 'ficha';
+
+        div.innerHTML = `
+          <div class="ficha-numero">
+            ${escapar(ficha.pedido || '')}
+          </div>
+
+          <div class="ficha-info">
+            <strong>${escapar(ficha.cliente || 'Sem cliente')}</strong>
+            <br>
+            Solicitante: ${escapar(ficha.solicitante || '')}
+            <br>
+            OS: ${escapar(ficha.os || '-')}
+          </div>
+
+          <div>
+            ${montarStatus(ficha.status)}
+          </div>
+
+          <button
+            class="botao"
+            onclick="abrirFicha('${escaparJs(ficha.pedido || '')}')"
+          >
+            🔍 ABRIR FICHA
+          </button>
+        `;
+
+        lista.appendChild(div);
+      });
+    }
+
+    // ======================================================
+    // FILTRAR FICHAS
+    // ======================================================
+
+    function filtrarFichas() {
+      const campo = document.getElementById('campoFiltroFichas');
+      const termo = campo ? campo.value.trim().toLowerCase() : '';
+
+      if (!termo) {
+        renderizarFichas(fichasCarregadas || []);
+        return;
+      }
+
+      const filtradas = (fichasCarregadas || []).filter(function(ficha) {
+        return (
+          String(ficha.pedido || '').toLowerCase().includes(termo) ||
+          String(ficha.os || '').toLowerCase().includes(termo) ||
+          String(ficha.cliente || '').toLowerCase().includes(termo) ||
+          String(ficha.solicitante || '').toLowerCase().includes(termo)
+        );
+      });
+
+      renderizarFichas(filtradas);
     }
 
 let timerPesquisaMateriais = null;
@@ -1664,13 +1740,23 @@ function mudarPaginaCatalogo(direcao) {
 
       if (!confirm('Deseja editar o pedido ' + numeroPedido + '?')) return;
 
-      Promise.all([
-        apiCall('buscarFichaPedido', { numeroPedido: numeroPedido }),
-        apiCall('consultarEstoquePedido', { numeroPedido: numeroPedido })
-      ])
+      // Fazemos as consultas em sequência.
+      // consultarEstoquePedido também lê a ficha internamente; executar
+      // as duas chamadas simultaneamente pode provocar concorrência
+      // desnecessária no Apps Script/Google Sheets.
+      apiCall('buscarFichaPedido', { numeroPedido: numeroPedido })
+        .then(function(ficha) {
+          return apiCall('consultarEstoquePedido', { numeroPedido: numeroPedido })
+            .then(function(conferencia) {
+              return {
+                ficha: ficha,
+                conferencia: conferencia
+              };
+            });
+        })
         .then(function(respostas) {
-          const ficha = respostas[0];
-          const conferencia = respostas[1];
+          const ficha = respostas.ficha;
+          const conferencia = respostas.conferencia;
           const mapaEstoque = {};
 
           (conferencia.itens || []).forEach(function(item) {
@@ -2002,6 +2088,7 @@ function mudarPaginaCatalogo(direcao) {
       catalogoInicializado = true;
 
       renderizarMateriais();
+      carregarColaboradores();
 
       const resultados = document.getElementById('resultados');
       if (resultados) {
@@ -2012,7 +2099,6 @@ function mudarPaginaCatalogo(direcao) {
       // Pequeno atraso para garantir que a tela já esteja renderizada
       // antes da primeira chamada ao Apps Script.
       setTimeout(function() {
-        carregarColaboradores().catch(function() {});
         carregarCatalogoMateriais(0);
       }, 150);
     }
