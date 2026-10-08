@@ -433,7 +433,10 @@ if ('serviceWorker' in navigator) {
         <div>
           <label for="solicitante">Solicitante</label>
           <select id="solicitante">
-            <option value="">Carregando colaboradores...</option>
+            <option value="">Selecione</option>
+            <option value="Wallace">Wallace</option>
+            <option value="Claudio">Claudio</option>
+            <option value="Leonardo">Leonardo</option>
           </select>
         </div>
         <div>
@@ -579,68 +582,6 @@ function mostrarErroInicial(texto) {
   }
 }
 
-// ======================================================
-// COLABORADORES ATIVOS
-// ======================================================
-
-let colaboradoresCarregados = false;
-let colaboradoresCarregando = false;
-
-function carregarColaboradores() {
-  const select = document.getElementById('solicitante');
-  if (!select) return Promise.resolve([]);
-
-  if (colaboradoresCarregados) {
-    return Promise.resolve([]);
-  }
-
-  if (colaboradoresCarregando) return Promise.resolve([]);
-
-  colaboradoresCarregando = true;
-  select.disabled = true;
-  select.innerHTML = '<option value="">⏳ Carregando colaboradores...</option>';
-
-  return apiCall('colaboradores')
-    .then(function(lista) {
-      const colaboradores = Array.isArray(lista) ? lista : [];
-
-      select.innerHTML = '<option value="">Selecione</option>';
-
-      colaboradores.forEach(function(colaborador) {
-        const option = document.createElement('option');
-        option.value = colaborador.nome || '';
-        option.textContent = colaborador.nome || '';
-        if (colaborador.codigo) {
-          option.dataset.codigo = colaborador.codigo;
-        }
-        if (colaborador.empresa) {
-          option.dataset.empresa = colaborador.empresa;
-        }
-        if (colaborador.funcao) {
-          option.dataset.funcao = colaborador.funcao;
-        }
-        select.appendChild(option);
-      });
-
-      colaboradoresCarregados = true;
-
-      if (!colaboradores.length) {
-        select.innerHTML = '<option value="">Nenhum colaborador ativo</option>';
-      }
-
-      return colaboradores;
-    })
-    .catch(function(erro) {
-      select.innerHTML = '<option value="">Erro ao carregar colaboradores</option>';
-      console.error('Erro ao carregar colaboradores:', erro);
-      throw erro;
-    })
-    .finally(function() {
-      colaboradoresCarregando = false;
-      select.disabled = false;
-    });
-}
-
 
     // ======================================================
     // VARIÁVEIS
@@ -702,10 +643,6 @@ document
       document
         .getElementById('btnNova')
         .classList.add('ativo');
-
-      if (!colaboradoresCarregados && !colaboradoresCarregando) {
-        carregarColaboradores().catch(function() {});
-      }
 
       if (!catalogoCarregado) carregarCatalogoMateriais();
     }
@@ -2012,7 +1949,6 @@ function mudarPaginaCatalogo(direcao) {
       // Pequeno atraso para garantir que a tela já esteja renderizada
       // antes da primeira chamada ao Apps Script.
       setTimeout(function() {
-        carregarColaboradores().catch(function() {});
         carregarCatalogoMateriais(0);
       }, 150);
     }
