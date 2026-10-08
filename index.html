@@ -433,10 +433,7 @@ if ('serviceWorker' in navigator) {
         <div>
           <label for="solicitante">Solicitante</label>
           <select id="solicitante">
-            <option value="">Selecione</option>
-            <option value="Wallace">Wallace</option>
-            <option value="Claudio">Claudio</option>
-            <option value="Leonardo">Leonardo</option>
+            <option value="">Carregando colaboradores...</option>
           </select>
         </div>
         <div>
@@ -537,18 +534,25 @@ function apiCall(action, params) {
       resolve(resposta.dados);
     };
 
-    // A consulta ao Apps Script pode envolver várias leituras da planilha.
-    // Mantemos uma margem maior para evitar falso timeout.
     let tempoLimite = setTimeout(function() {
       limpar();
       reject(new Error(
-        'A API não respondeu dentro do tempo esperado. Verifique a implantação do Apps Script.'
+        'A API não respondeu. Verifique se a implantação do Apps Script está publicada como "qualquer pessoa".'
       ));
-    }, 60000);
+    }, 20000);
 
     script.onload = function() {
-      // O carregamento do <script> não significa que o callback JSONP
-      // já foi executado. O callback é quem finaliza a requisição.
+      // O callback é quem encerra a requisição.
+      // Se o script carregar mas o callback não executar,
+      // o retorno da API não veio em JSONP válido.
+      setTimeout(function() {
+        if (!finalizado) {
+          limpar();
+          reject(new Error(
+            'O servidor foi acessado, mas não retornou uma resposta JSONP válida.'
+          ));
+        }
+      }, 1500);
     };
 
     script.onerror = function() {
@@ -573,6 +577,68 @@ function mostrarErroInicial(texto) {
       escapar(texto) +
       '</div>';
   }
+}
+
+// ======================================================
+// COLABORADORES ATIVOS
+// ======================================================
+
+let colaboradoresCarregados = false;
+let colaboradoresCarregando = false;
+
+function carregarColaboradores() {
+  const select = document.getElementById('solicitante');
+  if (!select) return Promise.resolve([]);
+
+  if (colaboradoresCarregados) {
+    return Promise.resolve([]);
+  }
+
+  if (colaboradoresCarregando) return Promise.resolve([]);
+
+  colaboradoresCarregando = true;
+  select.disabled = true;
+  select.innerHTML = '<option value="">⏳ Carregando colaboradores...</option>';
+
+  return apiCall('colaboradores')
+    .then(function(lista) {
+      const colaboradores = Array.isArray(lista) ? lista : [];
+
+      select.innerHTML = '<option value="">Selecione</option>';
+
+      colaboradores.forEach(function(colaborador) {
+        const option = document.createElement('option');
+        option.value = colaborador.nome || '';
+        option.textContent = colaborador.nome || '';
+        if (colaborador.codigo) {
+          option.dataset.codigo = colaborador.codigo;
+        }
+        if (colaborador.empresa) {
+          option.dataset.empresa = colaborador.empresa;
+        }
+        if (colaborador.funcao) {
+          option.dataset.funcao = colaborador.funcao;
+        }
+        select.appendChild(option);
+      });
+
+      colaboradoresCarregados = true;
+
+      if (!colaboradores.length) {
+        select.innerHTML = '<option value="">Nenhum colaborador ativo</option>';
+      }
+
+      return colaboradores;
+    })
+    .catch(function(erro) {
+      select.innerHTML = '<option value="">Erro ao carregar colaboradores</option>';
+      console.error('Erro ao carregar colaboradores:', erro);
+      throw erro;
+    })
+    .finally(function() {
+      colaboradoresCarregando = false;
+      select.disabled = false;
+    });
 }
 
 
@@ -636,6 +702,10 @@ document
       document
         .getElementById('btnNova')
         .classList.add('ativo');
+
+      if (!colaboradoresCarregados && !colaboradoresCarregando) {
+        carregarColaboradores().catch(function() {});
+      }
 
       if (!catalogoCarregado) carregarCatalogoMateriais();
     }
@@ -1594,23 +1664,13 @@ function mudarPaginaCatalogo(direcao) {
 
       if (!confirm('Deseja editar o pedido ' + numeroPedido + '?')) return;
 
-      // Fazemos as consultas em sequência.
-      // consultarEstoquePedido também lê a ficha internamente; executar
-      // as duas chamadas simultaneamente pode provocar concorrência
-      // desnecessária no Apps Script/Google Sheets.
-      apiCall('buscarFichaPedido', { numeroPedido: numeroPedido })
-        .then(function(ficha) {
-          return apiCall('consultarEstoquePedido', { numeroPedido: numeroPedido })
-            .then(function(conferencia) {
-              return {
-                ficha: ficha,
-                conferencia: conferencia
-              };
-            });
-        })
+      Promise.all([
+        apiCall('buscarFichaPedido', { numeroPedido: numeroPedido }),
+        apiCall('consultarEstoquePedido', { numeroPedido: numeroPedido })
+      ])
         .then(function(respostas) {
-          const ficha = respostas.ficha;
-          const conferencia = respostas.conferencia;
+          const ficha = respostas[0];
+          const conferencia = respostas[1];
           const mapaEstoque = {};
 
           (conferencia.itens || []).forEach(function(item) {
@@ -1952,6 +2012,7 @@ function mudarPaginaCatalogo(direcao) {
       // Pequeno atraso para garantir que a tela já esteja renderizada
       // antes da primeira chamada ao Apps Script.
       setTimeout(function() {
+        carregarColaboradores().catch(function() {});
         carregarCatalogoMateriais(0);
       }, 150);
     }
