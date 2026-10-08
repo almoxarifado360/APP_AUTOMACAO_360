@@ -537,25 +537,18 @@ function apiCall(action, params) {
       resolve(resposta.dados);
     };
 
+    // A consulta ao Apps Script pode envolver várias leituras da planilha.
+    // Mantemos uma margem maior para evitar falso timeout.
     let tempoLimite = setTimeout(function() {
       limpar();
       reject(new Error(
-        'A API não respondeu. Verifique se a implantação do Apps Script está publicada como "qualquer pessoa".'
+        'A API não respondeu dentro do tempo esperado. Verifique a implantação do Apps Script.'
       ));
-    }, 20000);
+    }, 60000);
 
     script.onload = function() {
-      // O callback é quem encerra a requisição.
-      // Se o script carregar mas o callback não executar,
-      // o retorno da API não veio em JSONP válido.
-      setTimeout(function() {
-        if (!finalizado) {
-          limpar();
-          reject(new Error(
-            'O servidor foi acessado, mas não retornou uma resposta JSONP válida.'
-          ));
-        }
-      }, 1500);
+      // O carregamento do <script> não significa que o callback JSONP
+      // já foi executado. O callback é quem finaliza a requisição.
     };
 
     script.onerror = function() {
@@ -1601,13 +1594,23 @@ function mudarPaginaCatalogo(direcao) {
 
       if (!confirm('Deseja editar o pedido ' + numeroPedido + '?')) return;
 
-      Promise.all([
-        apiCall('buscarFichaPedido', { numeroPedido: numeroPedido }),
-        apiCall('consultarEstoquePedido', { numeroPedido: numeroPedido })
-      ])
+      // Fazemos as consultas em sequência.
+      // consultarEstoquePedido também lê a ficha internamente; executar
+      // as duas chamadas simultaneamente pode provocar concorrência
+      // desnecessária no Apps Script/Google Sheets.
+      apiCall('buscarFichaPedido', { numeroPedido: numeroPedido })
+        .then(function(ficha) {
+          return apiCall('consultarEstoquePedido', { numeroPedido: numeroPedido })
+            .then(function(conferencia) {
+              return {
+                ficha: ficha,
+                conferencia: conferencia
+              };
+            });
+        })
         .then(function(respostas) {
-          const ficha = respostas[0];
-          const conferencia = respostas[1];
+          const ficha = respostas.ficha;
+          const conferencia = respostas.conferencia;
           const mapaEstoque = {};
 
           (conferencia.itens || []).forEach(function(item) {
