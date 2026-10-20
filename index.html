@@ -1251,18 +1251,18 @@ function mudarPaginaCatalogo(direcao) {
       incendio_2x5cv_antigo: {
         nome: 'Quadro de incêndio — 2 bombas de 5 CV, trifásico, padrão antigo',
         itens: [
-          { descricao: 'Quadro elétrico EPBOX 40 × 30 cm', termos: ['epbox','40','30'], quantidade: 1 },
-          { descricao: 'Sinaleiro LED Altronic branco, 22 mm, 220 Vca', termos: ['altronic','branco','22','220'], quantidade: 1 },
-          { descricao: 'Sinaleiro LED Altronic vermelho, 22 mm, 220 Vca', codigoPreferido: 'AUT341', termos: ['altronic','vermelho','22','220'], quantidade: 2 },
-          { descricao: 'Contatora Lukma CJX2-1810, tripolar, 18 A, bobina 220 V', termos: ['lukma','cjx2','1810'], quantidade: 2 },
-          { descricao: 'Chave seletora Lukma, 3 posições fixas, 1NA + 1NF', termosAlternativos: [['seletora','1na','1nf'], ['seletora','3','fixas'], ['seletora','lukma']], quantidade: 1 },
-          { descricao: 'Disjuntor WEG MDW-C25-3, tripolar, 25 A', termos: ['weg','mdw','c25','3'], quantidade: 1 },
-          { descricao: 'Disjuntor WEG MDW-C10, monopolar, 10 A', termos: ['weg','mdw','c10'], quantidade: 2 },
-          { descricao: 'Borne de passagem WEG BTWP, 4,0 mm', termos: ['weg','btwp','4'], quantidade: 9 },
-          { descricao: 'Tampa WEG TF-BTWP 2,5-4, para borne de 4,0 mm', termos: ['weg','tf','btwp','4'], quantidade: 3 },
-          { descricao: 'Borne de passagem WEG BTWP, 2,5 mm', termos: ['weg','btwp','2,5'], quantidade: 4 },
-          { descricao: 'Tampa WEG TF-BTWP 2,5-4, para borne de 2,5 mm', termos: ['weg','tf','btwp','2,5'], quantidade: 2 },
-          { descricao: 'Borne de aterramento Lukma, com 4 furos', termos: ['lukma','aterramento','4'], quantidade: 1 }
+          { codigo: 'AUT334', descricao: 'Quadro elétrico EPBOX 40 × 30 cm', quantidade: 1 },
+          { codigo: 'AUT344', descricao: 'Sinaleiro LED Altronic branco, 22 mm, 220 Vca', quantidade: 1 },
+          { codigo: 'AUT341', descricao: 'Sinaleiro LED Altronic vermelho, 22 mm, 220 Vca', quantidade: 2 },
+          { codigo: 'AUT079', descricao: 'Contatora Lukma CJX2-1810, 18 A, bobina 220 V', quantidade: 2 },
+          { codigo: 'AUT105', descricao: 'Chave seletora Lukma, 3 posições fixas, 1NA + 1NF', quantidade: 1 },
+          { codigo: 'AUT260', descricao: 'Disjuntor WEG tripolar, 32 A', quantidade: 1 },
+          { codigo: 'AUT238', descricao: 'Disjuntor WEG monopolar, 10 A', quantidade: 2 },
+          { codigo: 'AUT228', descricao: 'Borne WEG BTWP, 4,0 mm', quantidade: 9 },
+          { codigo: 'AUT233', descricao: 'Tampa WEG TF-BTWP para borne de 4,0 mm', quantidade: 3 },
+          { codigo: 'AUT227', descricao: 'Borne WEG BTWP, 2,5 mm', quantidade: 4 },
+          { codigo: 'AUT232', descricao: 'Tampa WEG TF-BTWP para borne de 2,5 mm', quantidade: 2 },
+          { codigo: 'AUT165', descricao: 'Borne de aterramento Lukma, 4 furos', quantidade: 1 }
         ]
       }
     };
@@ -1300,21 +1300,12 @@ function mudarPaginaCatalogo(direcao) {
       const resolvidos = [];
       const pendencias = [];
       quadro.itens.forEach(function(item) {
-        const gruposTermos = item.termosAlternativos
-          ? item.termosAlternativos.map(function(grupo) { return grupo.map(normalizarTermoQuadro); })
-          : [ (item.termos || []).map(normalizarTermoQuadro) ];
-        let candidatos = catalogoMateriais.filter(function(produto) {
-          const codigo = String(produto.codigo || '').trim().toUpperCase();
-          if (item.codigoPreferido && codigo === item.codigoPreferido.toUpperCase()) return true;
-          const campos = normalizarTermoQuadro([produto.codigo, produto.descricao, produto.marca, produto.codigoFabricante].join(' '));
-          return gruposTermos.some(function(termos) {
-            return termos.every(function(termo) { return campos.includes(termo); });
-          });
+        // A associação é feita exclusivamente pelo código AUT informado.
+        // Nunca tenta adivinhar um material pela descrição.
+        const codigoEsperado = String(item.codigo || '').trim().toUpperCase();
+        const candidatos = catalogoMateriais.filter(function(produto) {
+          return String(produto.codigo || '').trim().toUpperCase() === codigoEsperado;
         });
-        if (item.codigoPreferido) {
-          const exato = candidatos.filter(function(produto) { return String(produto.codigo || '').trim().toUpperCase() === item.codigoPreferido.toUpperCase(); });
-          if (exato.length === 1) candidatos = exato;
-        }
         if (candidatos.length === 1) {
           resolvidos.push({ produto: candidatos[0], quantidade: item.quantidade, descricaoModelo: item.descricao });
         } else {
