@@ -1253,9 +1253,9 @@ function mudarPaginaCatalogo(direcao) {
         itens: [
           { descricao: 'Quadro elétrico EPBOX 40 × 30 cm', termos: ['epbox','40','30'], quantidade: 1 },
           { descricao: 'Sinaleiro LED Altronic branco, 22 mm, 220 Vca', termos: ['altronic','branco','22','220'], quantidade: 1 },
-          { descricao: 'Sinaleiro LED Altronic vermelho, 22 mm, 220 Vca', termos: ['altronic','vermelho','22','220'], quantidade: 2 },
+          { descricao: 'Sinaleiro LED Altronic vermelho, 22 mm, 220 Vca', codigoPreferido: 'AUT341', termos: ['altronic','vermelho','22','220'], quantidade: 2 },
           { descricao: 'Contatora Lukma CJX2-1810, tripolar, 18 A, bobina 220 V', termos: ['lukma','cjx2','1810'], quantidade: 2 },
-          { descricao: 'Chave seletora Lukma, 3 posições fixas, 1NA + 1NF', termos: ['lukma','seletora','3'], quantidade: 1 },
+          { descricao: 'Chave seletora Lukma, 3 posições fixas, 1NA + 1NF', termosAlternativos: [['seletora','1na','1nf'], ['seletora','3','fixas'], ['seletora','lukma']], quantidade: 1 },
           { descricao: 'Disjuntor WEG MDW-C25-3, tripolar, 25 A', termos: ['weg','mdw','c25','3'], quantidade: 1 },
           { descricao: 'Disjuntor WEG MDW-C10, monopolar, 10 A', termos: ['weg','mdw','c10'], quantidade: 2 },
           { descricao: 'Borne de passagem WEG BTWP, 4,0 mm', termos: ['weg','btwp','4'], quantidade: 9 },
@@ -1300,11 +1300,21 @@ function mudarPaginaCatalogo(direcao) {
       const resolvidos = [];
       const pendencias = [];
       quadro.itens.forEach(function(item) {
-        const termos = item.termos.map(normalizarTermoQuadro);
-        const candidatos = catalogoMateriais.filter(function(produto) {
+        const gruposTermos = item.termosAlternativos
+          ? item.termosAlternativos.map(function(grupo) { return grupo.map(normalizarTermoQuadro); })
+          : [ (item.termos || []).map(normalizarTermoQuadro) ];
+        let candidatos = catalogoMateriais.filter(function(produto) {
+          const codigo = String(produto.codigo || '').trim().toUpperCase();
+          if (item.codigoPreferido && codigo === item.codigoPreferido.toUpperCase()) return true;
           const campos = normalizarTermoQuadro([produto.codigo, produto.descricao, produto.marca, produto.codigoFabricante].join(' '));
-          return termos.every(function(termo) { return campos.includes(termo); });
+          return gruposTermos.some(function(termos) {
+            return termos.every(function(termo) { return campos.includes(termo); });
+          });
         });
+        if (item.codigoPreferido) {
+          const exato = candidatos.filter(function(produto) { return String(produto.codigo || '').trim().toUpperCase() === item.codigoPreferido.toUpperCase(); });
+          if (exato.length === 1) candidatos = exato;
+        }
         if (candidatos.length === 1) {
           resolvidos.push({ produto: candidatos[0], quantidade: item.quantidade, descricaoModelo: item.descricao });
         } else {

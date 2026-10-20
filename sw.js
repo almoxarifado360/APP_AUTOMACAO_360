@@ -1,4 +1,4 @@
-const CACHE_NAME = 'automacao-360-v4-quadros';
+const CACHE_NAME = 'automacao-360-quadros-v2';
 
 const APP_SHELL = [
   './',
