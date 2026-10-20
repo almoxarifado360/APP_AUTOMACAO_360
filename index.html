@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pedido de Automação">
-<meta name="app-version" content="AUTOMACAO-360-V4-QUADROS-PRELISTADOS">
+<meta name="app-version" content="AUTOMACAO-360-V5-EDITOR-QUADROS">
 <title>Pedido de Automação | Grupo 360</title>
 
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -401,7 +401,7 @@ footer{
 // Registra o Service Worker para habilitar a instalação como PWA no GitHub Pages.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js?v=20261020-v4', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=20261020-v5', { scope: './' })
       .catch(function (erro) {
         console.warn('Service Worker não registrado:', erro);
       });
@@ -471,11 +471,27 @@ if ('serviceWorker' in navigator) {
     <div class="card">
       <div class="card-titulo">▦ Quadros Pré-Listados</div>
       <p>Selecione um modelo para carregar os materiais e as quantidades na solicitação. O cliente e a ordem de serviço serão preenchidos por você no pedido.</p>
+      <div class="salvar-area" style="justify-content:flex-start;margin:12px 0">
+        <button class="botao-salvar" type="button" onclick="abrirEditorQuadro()">＋ MONTAR NOVO QUADRO</button>
+      </div>
+      <div id="editorQuadroPreListado" class="card" style="display:none;background:#f7f9fc;border:1px solid #d6e0ee">
+        <h3 id="tituloEditorQuadro">Montar quadro pré-listado</h3>
+        <label for="nomeNovoQuadro">Nome do quadro / modelo</label>
+        <input id="nomeNovoQuadro" type="text" placeholder="Ex.: Quadro de recalque — 2 bombas de 3 CV">
+        <div class="grid-form" style="margin-top:12px">
+          <div><label for="codigoMaterialQuadro">Código interno AUT</label><input id="codigoMaterialQuadro" type="text" placeholder="Ex.: AUT079"></div>
+          <div><label for="quantidadeMaterialQuadro">Quantidade</label><input id="quantidadeMaterialQuadro" type="number" min="1" step="1" value="1"></div>
+          <div style="display:flex;align-items:end"><button class="botao botao-cinza" type="button" onclick="adicionarMaterialAoQuadro()">＋ Adicionar material</button></div>
+        </div>
+        <div id="previewMaterialQuadro" class="mensagem" style="margin-top:8px">Digite um código AUT para localizar o material no catálogo.</div>
+        <div id="listaMateriaisEditorQuadro" style="margin-top:12px"></div>
+        <div class="salvar-area" style="margin-top:14px">
+          <button class="botao botao-cinza" type="button" onclick="fecharEditorQuadro()">Cancelar</button>
+          <button class="botao-salvar" type="button" onclick="salvarQuadroPersonalizado()">💾 SALVAR QUADRO</button>
+        </div>
+      </div>
       <label for="seletorQuadro">Modelo de quadro</label>
-      <select id="seletorQuadro">
-        <option value="">Selecione um quadro...</option>
-        <option value="incendio_2x5cv_antigo">Quadro de incêndio — 2 bombas de 5 CV, trifásico, padrão antigo</option>
-      </select>
+      <select id="seletorQuadro"><option value="">Carregando modelos...</option></select>
       <div id="detalheQuadroPreListados" style="margin-top:14px"></div>
       <div class="salvar-area" style="margin-top:14px">
         <button class="botao botao-cinza" onclick="mostrarNovaSolicitacao()">← Voltar</button>
@@ -708,6 +724,7 @@ document
       limparTelas();
       document.getElementById('telaQuadros').style.display = 'block';
       document.getElementById('btnQuadros').classList.add('ativo');
+      atualizarSeletorQuadros(document.getElementById('seletorQuadro').value);
       renderizarDetalheQuadroPreListados();
       if (!catalogoCarregado) carregarCatalogoMateriais();
     }
@@ -1267,6 +1284,113 @@ function mudarPaginaCatalogo(direcao) {
       }
     };
 
+    // Modelos personalizados ficam salvos neste navegador. O modelo padrão permanece disponível.
+    const CHAVE_QUADROS_PERSONALIZADOS = 'grupo360_quadros_prelistados_v1';
+    let itensEmEdicaoQuadro = [];
+    let idQuadroEmEdicao = null;
+
+    function lerQuadrosPersonalizados() {
+      try {
+        const dados = JSON.parse(localStorage.getItem(CHAVE_QUADROS_PERSONALIZADOS) || '[]');
+        return Array.isArray(dados) ? dados : [];
+      } catch (e) { return []; }
+    }
+
+    function obterQuadroPreListado(id) {
+      return QUADROS_PRELISTADOS[id] || lerQuadrosPersonalizados().find(function(q) { return q.id === id; }) || null;
+    }
+
+    function atualizarSeletorQuadros(idSelecionado) {
+      const select = document.getElementById('seletorQuadro');
+      if (!select) return;
+      const personalizados = lerQuadrosPersonalizados();
+      let html = '<option value="">Selecione um quadro...</option>';
+      Object.keys(QUADROS_PRELISTADOS).forEach(function(id) {
+        html += '<option value="' + escapar(id) + '">' + escapar(QUADROS_PRELISTADOS[id].nome) + '</option>';
+      });
+      personalizados.forEach(function(q) {
+        html += '<option value="' + escapar(q.id) + '">' + escapar(q.nome) + '</option>';
+      });
+      select.innerHTML = html;
+      if (idSelecionado && obterQuadroPreListado(idSelecionado)) select.value = idSelecionado;
+      renderizarDetalheQuadroPreListados();
+    }
+
+    function abrirEditorQuadro() {
+      idQuadroEmEdicao = null;
+      itensEmEdicaoQuadro = [];
+      document.getElementById('tituloEditorQuadro').textContent = 'Montar novo quadro pré-listado';
+      document.getElementById('nomeNovoQuadro').value = '';
+      document.getElementById('codigoMaterialQuadro').value = '';
+      document.getElementById('quantidadeMaterialQuadro').value = '1';
+      document.getElementById('editorQuadroPreListado').style.display = 'block';
+      renderizarItensEditorQuadro();
+      document.getElementById('editorQuadroPreListado').scrollIntoView({behavior:'smooth',block:'start'});
+      if (!catalogoCarregado) carregarCatalogoMateriais();
+    }
+
+    function fecharEditorQuadro() {
+      document.getElementById('editorQuadroPreListado').style.display = 'none';
+    }
+
+    function adicionarMaterialAoQuadro() {
+      const codigo = document.getElementById('codigoMaterialQuadro').value.trim().toUpperCase();
+      const quantidade = Number(document.getElementById('quantidadeMaterialQuadro').value);
+      if (!/^AUT\d+$/.test(codigo)) { alert('Informe um código AUT válido, por exemplo AUT079.'); return; }
+      if (!Number.isInteger(quantidade) || quantidade < 1) { alert('A quantidade deve ser um número inteiro maior que zero.'); return; }
+      if (!catalogoCarregado) { alert('O catálogo ainda está carregando. Tente novamente em alguns segundos.'); carregarCatalogoMateriais(); return; }
+      const encontrados = catalogoMateriais.filter(function(p) { return String(p.codigo || '').trim().toUpperCase() === codigo; });
+      if (encontrados.length !== 1) { alert(encontrados.length ? 'O código ' + codigo + ' aparece mais de uma vez no catálogo. Corrija o cadastro antes de usar.' : 'O código ' + codigo + ' não foi encontrado no catálogo oficial.'); return; }
+      const produto = encontrados[0];
+      const existente = itensEmEdicaoQuadro.find(function(i) { return i.codigo === codigo; });
+      if (existente) { existente.quantidade += quantidade; }
+      else { itensEmEdicaoQuadro.push({codigo:codigo, descricao:produto.descricao, marca:produto.marca || '', codigoFabricante:produto.codigoFabricante || '', quantidade:quantidade}); }
+      document.getElementById('codigoMaterialQuadro').value = '';
+      document.getElementById('quantidadeMaterialQuadro').value = '1';
+      document.getElementById('previewMaterialQuadro').textContent = produto.codigo + ' — ' + produto.descricao + ' adicionado.';
+      renderizarItensEditorQuadro();
+    }
+
+    function renderizarItensEditorQuadro() {
+      const alvo = document.getElementById('listaMateriaisEditorQuadro');
+      if (!alvo) return;
+      if (!itensEmEdicaoQuadro.length) { alvo.innerHTML = '<div class="mensagem">Nenhum material adicionado ao modelo ainda.</div>'; return; }
+      let html = '<div class="tabela-wrapper"><table class="catalogo-tabela"><thead><tr><th>Código</th><th>Material</th><th>Qtd.</th><th></th></tr></thead><tbody>';
+      itensEmEdicaoQuadro.forEach(function(item, index) {
+        html += '<tr><td>' + escapar(item.codigo) + '</td><td>' + escapar(item.descricao) + '</td><td><input aria-label="Quantidade" type="number" min="1" step="1" value="' + item.quantidade + '" style="width:85px" onchange="alterarQuantidadeMaterialQuadro(' + index + ',this.value)"></td><td><button class="botao botao-cinza" type="button" onclick="removerMaterialQuadro(' + index + ')">Remover</button></td></tr>';
+      });
+      html += '</tbody></table></div><p class="atalho-pesquisa">' + itensEmEdicaoQuadro.length + ' tipos de materiais no modelo.</p>';
+      alvo.innerHTML = html;
+    }
+
+    function alterarQuantidadeMaterialQuadro(index, valor) {
+      const qtd = Number(valor);
+      if (!Number.isInteger(qtd) || qtd < 1) { alert('A quantidade deve ser um inteiro maior que zero.'); renderizarItensEditorQuadro(); return; }
+      if (itensEmEdicaoQuadro[index]) itensEmEdicaoQuadro[index].quantidade = qtd;
+    }
+
+    function removerMaterialQuadro(index) {
+      itensEmEdicaoQuadro.splice(index, 1);
+      renderizarItensEditorQuadro();
+    }
+
+    function salvarQuadroPersonalizado() {
+      const nome = document.getElementById('nomeNovoQuadro').value.trim();
+      if (!nome) { alert('Informe o nome do quadro.'); return; }
+      if (!itensEmEdicaoQuadro.length) { alert('Adicione pelo menos um material pelo código AUT.'); return; }
+      const personalizados = lerQuadrosPersonalizados();
+      const id = idQuadroEmEdicao || ('quadro_' + Date.now());
+      const quadro = {id:id, nome:nome, itens:itensEmEdicaoQuadro.map(function(i) { return Object.assign({}, i); })};
+      const pos = personalizados.findIndex(function(q) { return q.id === id; });
+      if (pos >= 0) personalizados[pos] = quadro; else personalizados.push(quadro);
+      try {
+        localStorage.setItem(CHAVE_QUADROS_PERSONALIZADOS, JSON.stringify(personalizados));
+      } catch (e) { alert('Não foi possível salvar neste navegador. Verifique o armazenamento do navegador.'); return; }
+      atualizarSeletorQuadros(id);
+      fecharEditorQuadro();
+      alert('Quadro "' + nome + '" salvo neste navegador. Ele já está disponível na lista de modelos.');
+    }
+
     function normalizarTermoQuadro(valor) {
       return normalizarTextoLocal(valor).replace(/[^a-z0-9]+/g, '');
     }
@@ -1278,7 +1402,8 @@ function mudarPaginaCatalogo(direcao) {
         alvo.innerHTML = '<div class="mensagem">Escolha um modelo para visualizar a lista de materiais.</div>';
         return;
       }
-      const quadro = QUADROS_PRELISTADOS[id];
+      const quadro = obterQuadroPreListado(id);
+      if (!quadro) { alvo.innerHTML = '<div class="mensagem">Modelo não encontrado.</div>'; return; }
       let html = '<h3>' + escapar(quadro.nome) + '</h3><div class="tabela-wrapper"><table class="catalogo-tabela"><thead><tr><th>Qtd.</th><th>Material predefinido</th></tr></thead><tbody>';
       quadro.itens.forEach(function(item) {
         html += '<tr><td>' + item.quantidade + '</td><td>' + escapar(item.descricao) + '</td></tr>';
@@ -1293,7 +1418,7 @@ function mudarPaginaCatalogo(direcao) {
 
     function usarQuadroPreListados() {
       const id = document.getElementById('seletorQuadro').value;
-      const quadro = QUADROS_PRELISTADOS[id];
+      const quadro = obterQuadroPreListado(id);
       if (!quadro) { alert('Selecione um quadro predefinido.'); return; }
       if (!catalogoCarregado) { alert('O catálogo de estoque ainda está carregando. Tente novamente em alguns segundos.'); carregarCatalogoMateriais(); return; }
 
