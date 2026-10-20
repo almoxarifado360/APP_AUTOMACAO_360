@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pedido de Automação">
-<meta name="app-version" content="AUTOMACAO-360-V3-COLABORADORES-FICHAS">
+<meta name="app-version" content="AUTOMACAO-360-V4-QUADROS-PRELISTADOS">
 <title>Pedido de Automação | Grupo 360</title>
 
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -81,7 +81,7 @@ header{
 }
 .navegacao{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:1fr 1fr 1fr;
   gap:14px;
   margin-bottom:16px;
 }
@@ -401,7 +401,7 @@ footer{
 // Registra o Service Worker para habilitar a instalação como PWA no GitHub Pages.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js?v=20261008-v3', { scope: './' })
+    navigator.serviceWorker.register('./sw.js?v=20261020-v4', { scope: './' })
       .catch(function (erro) {
         console.warn('Service Worker não registrado:', erro);
       });
@@ -424,6 +424,7 @@ if ('serviceWorker' in navigator) {
 <main class="container">
   <nav class="navegacao">
     <button id="btnNova" class="nav-btn ativo" onclick="mostrarNovaSolicitacao()">＋ Fazer pedido</button>
+    <button id="btnQuadros" class="nav-btn" onclick="mostrarQuadrosPreListados()">▦ Quadros Pré-Listados</button>
     <button id="btnFichas" class="nav-btn" onclick="mostrarFichas()">📋 Fichas / Pedidos</button>
   </nav>
 
@@ -463,6 +464,23 @@ if ('serviceWorker' in navigator) {
       <div class="card-titulo">🧰 Materiais solicitados</div>
       <div id="listaMateriais"><div class="mensagem">Nenhum material adicionado.</div></div>
       <div class="salvar-area"><button id="btnCancelarEdicao" class="botao botao-cinza" style="display:none" onclick="cancelarEdicao()">✖ CANCELAR EDIÇÃO</button><button id="btnSalvarPedido" class="botao-salvar" onclick="salvarPedido()">💾 SALVAR PEDIDO</button></div>
+    </div>
+  </section>
+
+  <section id="telaQuadros" style="display:none">
+    <div class="card">
+      <div class="card-titulo">▦ Quadros Pré-Listados</div>
+      <p>Selecione um modelo para carregar os materiais e as quantidades na solicitação. O cliente e a ordem de serviço serão preenchidos por você no pedido.</p>
+      <label for="seletorQuadro">Modelo de quadro</label>
+      <select id="seletorQuadro">
+        <option value="">Selecione um quadro...</option>
+        <option value="incendio_2x5cv_antigo">Quadro de incêndio — 2 bombas de 5 CV, trifásico, padrão antigo</option>
+      </select>
+      <div id="detalheQuadroPreListados" style="margin-top:14px"></div>
+      <div class="salvar-area" style="margin-top:14px">
+        <button class="botao botao-cinza" onclick="mostrarNovaSolicitacao()">← Voltar</button>
+        <button id="btnUsarQuadro" class="botao-salvar" onclick="usarQuadroPreListados()">CARREGAR MATERIAIS</button>
+      </div>
     </div>
   </section>
 
@@ -600,6 +618,9 @@ function mostrarErroInicial(texto) {
       document
         .getElementById('telaFichas')
         .style.display = 'none';
+      document
+        .getElementById('telaQuadros')
+        .style.display = 'none';
 document
         .getElementById('telaDetalhe')
         .style.display = 'none';
@@ -682,6 +703,14 @@ document
       if (!catalogoCarregado) carregarCatalogoMateriais();
     }
 
+
+    function mostrarQuadrosPreListados() {
+      limparTelas();
+      document.getElementById('telaQuadros').style.display = 'block';
+      document.getElementById('btnQuadros').classList.add('ativo');
+      renderizarDetalheQuadroPreListados();
+      if (!catalogoCarregado) carregarCatalogoMateriais();
+    }
 
     function mostrarFichas() {
 
@@ -1217,6 +1246,95 @@ function mudarPaginaCatalogo(direcao) {
       mostrarFichas();
     }
 
+
+    const QUADROS_PRELISTADOS = {
+      incendio_2x5cv_antigo: {
+        nome: 'Quadro de incêndio — 2 bombas de 5 CV, trifásico, padrão antigo',
+        itens: [
+          { descricao: 'Quadro elétrico EPBOX 40 × 30 cm', termos: ['epbox','40','30'], quantidade: 1 },
+          { descricao: 'Sinaleiro LED Altronic branco, 22 mm, 220 Vca', termos: ['altronic','branco','22','220'], quantidade: 1 },
+          { descricao: 'Sinaleiro LED Altronic vermelho, 22 mm, 220 Vca', termos: ['altronic','vermelho','22','220'], quantidade: 2 },
+          { descricao: 'Contatora Lukma CJX2-1810, tripolar, 18 A, bobina 220 V', termos: ['lukma','cjx2','1810'], quantidade: 2 },
+          { descricao: 'Chave seletora Lukma, 3 posições fixas, 1NA + 1NF', termos: ['lukma','seletora','3'], quantidade: 1 },
+          { descricao: 'Disjuntor WEG MDW-C25-3, tripolar, 25 A', termos: ['weg','mdw','c25','3'], quantidade: 1 },
+          { descricao: 'Disjuntor WEG MDW-C10, monopolar, 10 A', termos: ['weg','mdw','c10'], quantidade: 2 },
+          { descricao: 'Borne de passagem WEG BTWP, 4,0 mm', termos: ['weg','btwp','4'], quantidade: 9 },
+          { descricao: 'Tampa WEG TF-BTWP 2,5-4, para borne de 4,0 mm', termos: ['weg','tf','btwp','4'], quantidade: 3 },
+          { descricao: 'Borne de passagem WEG BTWP, 2,5 mm', termos: ['weg','btwp','2,5'], quantidade: 4 },
+          { descricao: 'Tampa WEG TF-BTWP 2,5-4, para borne de 2,5 mm', termos: ['weg','tf','btwp','2,5'], quantidade: 2 },
+          { descricao: 'Borne de aterramento Lukma, com 4 furos', termos: ['lukma','aterramento','4'], quantidade: 1 }
+        ]
+      }
+    };
+
+    function normalizarTermoQuadro(valor) {
+      return normalizarTextoLocal(valor).replace(/[^a-z0-9]+/g, '');
+    }
+
+    function renderizarDetalheQuadroPreListados() {
+      const alvo = document.getElementById('detalheQuadroPreListados');
+      const id = document.getElementById('seletorQuadro').value;
+      if (!id || !QUADROS_PRELISTADOS[id]) {
+        alvo.innerHTML = '<div class="mensagem">Escolha um modelo para visualizar a lista de materiais.</div>';
+        return;
+      }
+      const quadro = QUADROS_PRELISTADOS[id];
+      let html = '<h3>' + escapar(quadro.nome) + '</h3><div class="tabela-wrapper"><table class="catalogo-tabela"><thead><tr><th>Qtd.</th><th>Material predefinido</th></tr></thead><tbody>';
+      quadro.itens.forEach(function(item) {
+        html += '<tr><td>' + item.quantidade + '</td><td>' + escapar(item.descricao) + '</td></tr>';
+      });
+      html += '</tbody></table></div><p class="atalho-pesquisa">' + quadro.itens.length + ' tipos de materiais. Ao carregar, o sistema tentará associar cada linha ao catálogo oficial. Itens não identificados ou com correspondência ambígua serão apontados e não serão adicionados automaticamente.</p>';
+      alvo.innerHTML = html;
+    }
+
+    document.addEventListener('change', function(event) {
+      if (event.target && event.target.id === 'seletorQuadro') renderizarDetalheQuadroPreListados();
+    });
+
+    function usarQuadroPreListados() {
+      const id = document.getElementById('seletorQuadro').value;
+      const quadro = QUADROS_PRELISTADOS[id];
+      if (!quadro) { alert('Selecione um quadro predefinido.'); return; }
+      if (!catalogoCarregado) { alert('O catálogo de estoque ainda está carregando. Tente novamente em alguns segundos.'); carregarCatalogoMateriais(); return; }
+
+      const resolvidos = [];
+      const pendencias = [];
+      quadro.itens.forEach(function(item) {
+        const termos = item.termos.map(normalizarTermoQuadro);
+        const candidatos = catalogoMateriais.filter(function(produto) {
+          const campos = normalizarTermoQuadro([produto.codigo, produto.descricao, produto.marca, produto.codigoFabricante].join(' '));
+          return termos.every(function(termo) { return campos.includes(termo); });
+        });
+        if (candidatos.length === 1) {
+          resolvidos.push({ produto: candidatos[0], quantidade: item.quantidade, descricaoModelo: item.descricao });
+        } else {
+          pendencias.push({ item: item, quantidadeCandidatos: candidatos.length, candidatos: candidatos });
+        }
+      });
+
+      if (pendencias.length) {
+        const linhas = pendencias.map(function(p) {
+          let linha = '• ' + p.item.descricao + (p.quantidadeCandidatos === 0 ? ' — NÃO LOCALIZADO no catálogo' : ' — MAIS DE UMA CORRESPONDÊNCIA (' + p.quantidadeCandidatos + ')');
+          if (p.candidatos.length) linha += '\n  Opções: ' + p.candidatos.slice(0, 4).map(function(c) { return c.codigo + ' — ' + c.descricao; }).join('; ');
+          return linha;
+        });
+        alert('O quadro não foi carregado porque há materiais que precisam ser associados corretamente aos códigos do estoque.\n\n' + linhas.join('\n\n') + '\n\nAjuste a associação dos itens antes de usar este modelo. Nenhum material foi adicionado.');
+        return;
+      }
+
+      materiaisSelecionados = resolvidos.map(function(registro) {
+        const p = registro.produto;
+        return { codigo: p.codigo, descricao: p.descricao, marca: p.marca, codigoFabricante: p.codigoFabricante, estoque: Number(p.estoque) || 0, quantidade: registro.quantidade };
+      });
+      numeroPedidoEditando = null;
+      atualizarModoEdicao();
+      renderizarMateriais();
+      limparTelas();
+      document.getElementById('telaNova').style.display = 'block';
+      document.getElementById('btnNova').classList.add('ativo');
+      document.getElementById('listaMateriais').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      alert('Materiais carregados para o pedido. Preencha o solicitante, a ordem de serviço e o cliente. Confira as quantidades antes de salvar.');
+    }
 
     function salvarPedido() {
 
